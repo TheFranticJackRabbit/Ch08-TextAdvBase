@@ -1,0 +1,156 @@
+WORLD OF ZUUL - CHAPTER 8 EXTENSIONS
+Ashton Harbison, completed 2026.11.04
+Based on the zuul-better project from Objects First with Java (6th ed.)
+
+To play: create a Game object and call play(). Type 'help' for the
+command words.
+
+
+=====================================================================
+A LEVEL - ELEMENTS IMPLEMENTED
+=====================================================================
+
+8.22  Rooms can hold multiple items  (FULL implementation; this also
+      covers the partial items 8.20 and 8.21)
+      - New class Item: an item has a one-word name (typed in commands),
+        a description and a weight. Item.getLongDescription() returns
+        "key - a small brass key (weight 1)".
+      - Room keeps its items in a HashMap<String, Item>, keyed by name,
+        the same way it keeps its exits. Room.addItem(), getItem(name)
+        and removeItem() were added. A room can hold any number of items.
+      - Room.getLongDescription() now ends with "Items here:" and lists
+        every item's name, description and weight (or "Items here: none"),
+        so the items are printed whenever the room is printed.
+      - Game.createRooms() puts 8 items into the 5 rooms.
+
+8.26  'back' retraces the player's steps repeatedly  (FULL
+      implementation; this also covers the partial item 8.23, back one
+      room)
+      - Player keeps a Stack<Room> of previous rooms. Player.enterRoom()
+        pushes the room being left; Player.goBack() pops the most recent
+        room and makes it current. Typing 'back' again keeps going back,
+        one room per command, until the starting room is reached.
+      - 'back' with no history prints "You can't go back any further."
+        'back' with a second word prints "Back what?" (like 'quit').
+      - New command word BACK in CommandWord; Game.goBack() handles it.
+
+8.28  Player class  (responsibility-driven design)
+      - New class Player with fields: name, currentRoom, previousRooms
+        (the back stack), items (what is carried) and maxWeight.
+      - Game no longer has a currentRoom field. It asks the player
+        (player.getCurrentRoom()) and tells the player where it went
+        (player.enterRoom(room)). Player never prints anything; Game does
+        all the printing, like it does for Room.
+
+8.30  The player can pick up any number of items  (FULL implementation;
+      this also covers the partial item 8.29, pick up a single item)
+      - Player keeps its items in a HashMap<String, Item> with addItem(),
+        getItem(name), removeItem() and getTotalWeight().
+      - New commands 'take <item>' and 'drop <item>' (TAKE and DROP in
+        CommandWord; Game.take() and Game.drop()). 'take' moves the Item
+        object from the room to the player; 'drop' moves it back into the
+        current room, where it can be picked up again.
+      - Messages: "Take what?", "There is no X here.", "You pick up the X.",
+        "Drop what?", "You are not carrying the X.", "You drop the X."
+
+
+=====================================================================
+EXTRA CREDIT - ELEMENTS IMPLEMENTED
+=====================================================================
+
+8.31  Maximum weight the player can carry
+      - maxWeight is an attribute of the Player (starts at 10, the
+        constant STARTING_MAX_WEIGHT). Player.canCarry(item) is true only
+        if the weight already carried plus the item's weight is <= maxWeight.
+      - Game.take() refuses with "The X is too heavy. You are carrying N
+        and can carry M at most." The safe (weight 100) can never be lifted.
+
+8.32  'items' command
+      - Prints every item the player is carrying (name, description,
+        weight) and the line "Total weight: N (you can carry up to M)".
+        If nothing is carried: "You are not carrying anything."
+      - ITEMS in CommandWord; Game.printItems() calls Player.getItemString().
+
+8.33  Magic cookie and 'eat' command
+      - The pub contains a "cookie" (a magic cookie, weight 1). Once the
+        player is carrying it, 'eat cookie' removes it and calls
+        Player.increaseMaxWeight(10), so the player can carry 20 instead
+        of 10. Message: "You eat the magic cookie. You feel much stronger!
+        You can now carry up to 20."
+      - Eating anything else: "You can't eat the X!"  Eating something
+        not carried: "You are not carrying the X."  No item: "Eat what?"
+      - EAT in CommandWord; Game.eat(). The cookie's name is the constant
+        MAGIC_COOKIE in Game, so it is written in one place only.
+
+
+=====================================================================
+ALSO ADDED (not part of the graded list)
+=====================================================================
+
+- 'look' command: prints the current room again (exits and items),
+  useful after 'take' and 'drop'. LOOK in CommandWord; Game.look().
+- Game.printLocationInfo(): prints the current room's long description.
+  Used by printWelcome, goRoom, goBack and look, so that line is written
+  once instead of four times (avoiding code duplication, section 8.4).
+- Parser, Command and CommandWords did not need any changes: CommandWords
+  builds its list of valid words from CommandWord.values(), so adding the
+  new words to the CommandWord enum was enough.
+
+
+=====================================================================
+FILES
+=====================================================================
+
+New:       Item.java, Player.java, FEATURES.TXT
+Changed:   Game.java, Room.java, CommandWord.java
+Unchanged: Parser.java, Command.java, CommandWords.java
+
+
+=====================================================================
+MAP AND ITEMS (for testing)
+=====================================================================
+
+  outside (start)  east -> theater, south -> lab, west -> pub
+                   umbrella (3)
+  theater          west -> outside
+                   notes (1), projector (8)
+  pub              east -> outside
+                   glass (2), cookie (1, the magic cookie)
+  lab              north -> outside, east -> office
+                   laptop (6)
+  office           west -> lab
+                   key (1), safe (100)
+
+The player starts with a limit of 10. Eating the cookie raises it to 20.
+
+
+=====================================================================
+QUICK TEST (type these in order after play())
+=====================================================================
+
+  back              -> You can't go back any further.
+  take umbrella     -> You pick up the umbrella.
+  items             -> umbrella ... Total weight: 3 (you can carry up to 10)
+  go east           -> lecture theater, lists notes and projector
+  take projector    -> The projector is too heavy. (3 + 8 is more than 10)
+  take notes        -> You pick up the notes.
+  back              -> back outside (umbrella is gone from the room)
+  back              -> You can't go back any further.
+  go west           -> campus pub, lists glass and cookie
+  take cookie       -> You pick up the cookie.
+  take glass        -> You pick up the glass.
+  eat glass         -> You can't eat the glass!
+  eat cookie        -> You eat the magic cookie ... carry up to 20.
+  go east, go east  -> outside, then lecture theater
+  take projector    -> You pick up the projector.   (now 14 of 20)
+  go west, go south -> outside, then computing lab
+  take laptop       -> You pick up the laptop.      (now 20 of 20)
+  go east           -> admin office, lists key and safe
+  take key          -> The key is too heavy. (20 + 1 is more than 20)
+  drop notes        -> You drop the notes.
+  take key          -> You pick up the key.
+  take safe         -> The safe is too heavy.
+  look              -> office now shows notes and safe
+  back (x6)         -> lab, outside, theater, outside, pub, outside
+  back              -> You can't go back any further.
+  quit              -> Thank you for playing.  Good bye.
